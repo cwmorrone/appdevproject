@@ -1,0 +1,37 @@
+
+import Foundation
+import Firebase
+
+class FirebaseManager: ObservableObject {
+    let db = Firestore.firestore()
+        @Published var messages: [Message] = []
+        
+        func sendMessage(messageText: String, senderID: String, receiverID: String) {
+            
+            let newMessage = Message(id: UUID(), text: messageText, senderID: senderID)
+            // Save the message to the Firebase database
+            db.collection("conversations").document(receiverID).collection("messages").addDocument(data: [
+                "text": messageText,
+                "senderID": senderID
+            ])
+        }
+        
+        func observeMessages(receiverID: String) {
+            db.collection("conversations").document(receiverID).collection("messages").addSnapshotListener { querySnapshot, error in
+                guard let documents = querySnapshot?.documents else {
+                    print("Error fetching documents: \(error?.localizedDescription ?? "Unknown error")")
+                    return
+                }
+                self.messages = documents.compactMap { document in
+                    let data = document.data()
+                    if let text = data["text"] as? String,
+                       let senderID = data["senderID"] as? String {
+                        return Message(id: UUID(), text: text, senderID: senderID)
+                    } else {
+                        // Customize this return if necessary based on your logic
+                        return Message(id: UUID(), text: "", senderID: "")
+                    }
+                }
+            }
+        }
+}
